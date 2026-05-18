@@ -1,9 +1,11 @@
 import json
 import logging
+import asyncio
 
 from fastapi import APIRouter
 
 from agents.task_b_recommend import task_b_agent
+from agents.yarngpt_voice import YarnGPTVoiceTool
 from app.models.schemas import (
     RecommendRequest,
     RecommendResponse,
@@ -33,10 +35,15 @@ async def recommend(request: RecommendRequest) -> RecommendResponse:
     content_str = last.content if hasattr(last, "content") else str(last)
     data: dict = {}
     if isinstance(content_str, str):
+        text = content_str.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[-1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3].strip()
         try:
-            data = json.loads(content_str)
+            data = json.loads(text)
         except json.JSONDecodeError:
-            logger.warning("Agent output not valid JSON: %.200s", content_str)
+            logger.warning("Agent output not valid JSON: %.200s", text)
 
     raw_recs = data.get("recommendations", [])
     recommendations = [
@@ -50,12 +57,31 @@ async def recommend(request: RecommendRequest) -> RecommendResponse:
         if isinstance(r, dict)
     ]
 
-    raw_spoken = data.get("spoken_explanation", {}) or {}
+    explanation_text = data.get("explanation_text", "")
+    voice_used = data.get("voice_used", "Idera")
+    VALID_VOICES = YarnGPTVoiceTool.VOICES
+    if voice_used not in VALID_VOICES:
+        voice_used = "Idera"
+    language = data.get("language", "english")
+
+    audio_b64 = ""
+    if explanation_text:
+        try:
+            tts = YarnGPTVoiceTool()
+            loop = asyncio.get_running_loop()
+            result_dict = await loop.run_in_executor(
+                None, tts.split_generate_and_combine, explanation_text, voice_used
+            )
+            audio_b64 = result_dict.get("audio_base64", "")
+            tts.close()
+        except Exception as exc:
+            logger.warning("YarnGPT audio generation failed: %s", exc)
+
     spoken = SpokenExplanation(
-        audio_base64=raw_spoken.get("audio_base64", ""),
-        voice_used=raw_spoken.get("voice_used", "Idera"),
-        language=raw_spoken.get("language", "english"),
-        text_transcript=raw_spoken.get("text_transcript", ""),
+        audio_base64=audio_b64,
+        voice_used=voice_used,
+        language=language,
+        text_transcript=explanation_text,
     )
 
     return RecommendResponse(

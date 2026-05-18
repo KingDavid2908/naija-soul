@@ -4,9 +4,9 @@ pydantic==2.9.0
 httpx==0.28.1
 python-multipart==0.0.12
 langgraph>=0.50.0
-langchain-groq>=0.3.0
 langmem>=0.0.30
 langchain>=0.3.0
 openai>=1.0.0
 python-dotenv==1.0.0
 langchain-google-genai>=2.0.0
+langchain-mistralai>=0.2.0

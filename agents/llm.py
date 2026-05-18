@@ -1,14 +1,16 @@
 from functools import cache
 
-from langchain_groq import ChatGroq
+from langchain_mistralai import ChatMistralAI
 
-from app.core.config import GROQ_API_KEY
+from app.core.config import MISTRAL_API_KEY
 
 
 @cache
-def get_llm() -> ChatGroq:
-    return ChatGroq(
-        model="openai/gpt-oss-120b",
+def get_llm() -> ChatMistralAI:
+    return ChatMistralAI(
+        model="mistral-large-latest",
         temperature=0.7,
-        api_key=GROQ_API_KEY,
+        max_tokens=2048,
+        mistral_api_key=MISTRAL_API_KEY,
+        max_retries=30,
     )

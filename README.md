@@ -2,7 +2,7 @@
 
 **DSN × BCT Hackathon 3.0 — LLM Agent Challenge**
 
-A culturally-grounded multi-agent behavioral intelligence platform for user modeling (Task A) and personalized recommendation (Task B), powered by Groq, LangGraph, YarnGPT, and Google Gemini.
+A culturally-grounded multi-agent behavioral intelligence platform for user modeling (Task A) and personalized recommendation (Task B), powered by Mistral, LangGraph, YarnGPT, and Google Gemini.
 
 ---
 
@@ -15,7 +15,7 @@ Frontend (Next.js / TypeScript) — Vercel
         ▼
 AI Backend (Python / FastAPI)   — Render
         │
-        ├── Groq (gpt-oss-120b)              — LLM reasoning
+        ├── Mistral (mistral-large-latest)   — LLM reasoning
         ├── Google Gemini (gemini-embedding-2) — Embeddings (memory + product search)
         ├── YarnGPT API                      — Nigerian TTS
         ├── Geoapify Geocoding + Places      — Dynamic city resolution + business data
@@ -28,7 +28,7 @@ AI Backend (Python / FastAPI)   — Render
 ## Prerequisites
 
 - Python 3.11+
-- [Groq API key](https://console.groq.com)
+- [Mistral API key](https://console.mistral.ai)
 - [YarnGPT API key](https://yarngpt.ai)
 - [Calendarific API key](https://calendarific.com)
 - [Geoapify API key](https://myprojects.geoapify.com)
@@ -60,10 +60,10 @@ cp .env.example .env
 # then edit .env with your API keys
 
 # 6. Run the server
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 10000
 ```
 
-The API will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for the interactive Swagger UI.
+The API will be available at `http://localhost:10000`. Visit `http://localhost:10000/docs` for the interactive Swagger UI.
 
 ---
 
@@ -99,7 +99,7 @@ Simulates a realistic user review in Nigerian English/Pidgin, with optional audi
 
 ```bash
 # Example 1: Existing user by ID
-curl -X POST http://localhost:8000/simulate-review \
+curl -X POST http://localhost:10000/simulate-review \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_123",
@@ -110,7 +110,7 @@ curl -X POST http://localhost:8000/simulate-review \
   }'
 
 # Example 2: Cold-start with persona description
-curl -X POST http://localhost:8000/simulate-review \
+curl -X POST http://localhost:10000/simulate-review \
   -H "Content-Type: application/json" \
   -d '{
     "user_persona": "An Igbo student at UNN who loves African literature",
@@ -154,7 +154,7 @@ Generates personalized recommendations across food, books, movies, and local Nig
 
 ```bash
 # Example 1: Recommend food for existing user
-curl -X POST http://localhost:8000/recommend \
+curl -X POST http://localhost:10000/recommend \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_123",
@@ -162,7 +162,7 @@ curl -X POST http://localhost:8000/recommend \
   }'
 
 # Example 2: Recommend books for a persona
-curl -X POST http://localhost:8000/recommend \
+curl -X POST http://localhost:10000/recommend \
   -H "Content-Type: application/json" \
   -d '{
     "user_persona": "A Hausa student in Kano who enjoys history",
@@ -170,7 +170,7 @@ curl -X POST http://localhost:8000/recommend \
   }'
 
 # Example 3: General recommendation (all categories)
-curl -X POST http://localhost:8000/recommend \
+curl -X POST http://localhost:10000/recommend \
   -H "Content-Type: application/json" \
   -d '{
     "user_persona": "An Igbo businessman in Enugu who likes action movies"
@@ -201,16 +201,19 @@ curl -X POST http://localhost:8000/recommend \
 
 ```bash
 # Build
-docker build -t naija-soul .
+docker build -t naija-soul-ai .
 
-# Run
-docker run -p 8000:10000 \
-  -e GROQ_API_KEY=your_key \
+# Run (mount .env to inject API keys)
+docker run -p 10000:10000 -v .env:/app/.env naija-soul-ai
+
+# Or with environment variables:
+docker run -p 10000:10000 \
+  -e MISTRAL_API_KEY=your_key \
   -e YARNGPT_API_KEY=your_key \
   -e CALENDARIFIC_API_KEY=your_key \
   -e GEOAPIFY_API_KEY=your_key \
   -e GOOGLE_API_KEY=your_key \
-  naija-soul
+  naija-soul-ai
 ```
 
 ---
@@ -223,7 +226,7 @@ docker run -p 8000:10000 \
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn app.main:app --host 0.0.0.0 --port \$PORT`
 4. Add environment variables:
-   - `GROQ_API_KEY`
+   - `MISTRAL_API_KEY`
    - `YARNGPT_API_KEY`
    - `CALENDARIFIC_API_KEY`
    - `GEOAPIFY_API_KEY`
@@ -237,7 +240,7 @@ docker run -p 8000:10000 \
 | Component | Technology |
 |---|---|
 | Framework | FastAPI (Python) |
-| LLM | Groq — `openai/gpt-oss-120b` |
+| LLM | Mistral — `mistral-large-latest` |
 | Agent Runtime | LangGraph (`create_react_agent`) |
 | Memory | LangMem (InMemoryStore + Gemini embeddings) |
 | Embeddings | Google Gemini `gemini-embedding-2` (3072d) |
@@ -263,7 +266,7 @@ naija-soul-ai/
 │   └── routers/                 # API route handlers
 ├── agents/
 │   ├── prompts.py               # System prompts for all agents
-│   ├── llm.py                   # Groq LLM (lazy singleton)
+│   ├── llm.py                   # Mistral LLM (lazy singleton)
 │   ├── embeddings.py            # Google Gemini embeddings
 │   ├── memory.py                # InMemoryStore + langmem tools
 │   ├── task_a_review.py         # Task A: Review Simulator agent
@@ -274,7 +277,6 @@ naija-soul-ai/
 ├── tools/
 │   ├── geoapify_places.py       # Geocoding + business search
 │   ├── calendarific_holidays.py # Holiday lookup
-│   ├── download_datasets.py     # One-time dataset downloader
 │   ├── product_loader.py        # JSON fallback loader
 │   ├── product_store.py         # SQLite FTS5 index
 │   └── product_search.py        # FTS5 → Gemini rerank @tool
