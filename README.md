@@ -205,6 +205,7 @@ naija-soul-ai/
 │   ├── main.py                  # FastAPI entry point
 │   ├── core/config.py           # Environment config (5 API keys)
 │   ├── core/logging.py          # Logger setup
+│   ├── models/schemas.py        # Pydantic request/response models
 │   └── routers/                 # API route handlers
 ├── agents/
 │   ├── prompts.py               # System prompts for all agents
@@ -227,7 +228,8 @@ naija-soul-ai/
 │   ├── yelp/                    # 10K businesses, 20K reviews, 2K users
 │   ├── amazon/                  # 15K video game reviews
 │   └── goodreads/               # 7.9K books with genres
-├── memory/                      # User profile store
+├── memory/
+│   └── user_profiles.py         # Profile inference logic
 ├── .env.example                 # Template (committed)
 ├── .gitignore
 ├── Dockerfile
