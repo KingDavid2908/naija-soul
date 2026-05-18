@@ -82,46 +82,100 @@ Response:
 
 ### POST /simulate-review — Task A: User Modeling
 
-Simulates a realistic user review for a given product or business.
+Simulates a realistic user review in Nigerian English/Pidgin, with optional audio narration.
+
+**Request fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `user_id` | string | No* | Existing user ID (agent fetches profile from memory) |
+| `user_persona` | string | No* | Free-text persona (e.g. "A young Yoruba professional in Lagos") |
+| `product_name` | string | Yes | Name of the product, book, or dish |
+| `product_category` | string | Yes | Category — `"food"`, `"book"`, `"movie"`, or `"business"` |
+| `product_description` | string | Yes | Description of the product |
+| `business_name` | string | No | Restaurant/store name (for food/business categories) |
+
+*Either `user_id` or `user_persona` must be provided (or both for override).
 
 ```bash
+# Example 1: Existing user by ID
 curl -X POST http://localhost:8000/simulate-review \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_123",
-    "product_name": "Ofe Onugbu",
+    "product_name": "Jollof Rice",
     "product_category": "food",
-    "product_description": "Traditional Nigerian bitter leaf soup",
+    "product_description": "Classic Nigerian jollof rice with fried plantain",
     "business_name": "Bukka Hut, VI"
+  }'
+
+# Example 2: Cold-start with persona description
+curl -X POST http://localhost:8000/simulate-review \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_persona": "An Igbo student at UNN who loves African literature",
+    "product_name": "Half of a Yellow Sun",
+    "product_category": "book",
+    "product_description": "Chimamanda Adichie'\''s novel about the Biafran War"
   }'
 ```
 
 Response:
 ```json
 {
-  "review_text": "Guy this place no dey disappoint! The ofe onugbu hit different...",
-  "rating": 4.0,
-  "confidence": 0.87,
-  "audio_base64": "base64-encoded-wav",
-  "voice_used": "Tayo",
-  "persona_match_score": 9.1
+  "review_text": "Omo, Bukka Hut Jollof Rice na the real deal! The rice get that perfect smoky, peppery vibe...",
+  "rating": 5.0,
+  "confidence": 0.96,
+  "audio_base64": "base64-encoded-wav-or-empty-string",
+  "voice_used": "Osagie",
+  "persona_match_score": 0.92
 }
 ```
 
+**Notes for frontend:**
+- `audio_base64` may be an empty string `""` if TTS generation fails — play only if non-empty
+- Play audio as: `new Audio(`data:audio/wav;base64,${data.audio_base64}`).play()`
+- `voice_used` is one of 16 YarnGPT Nigerian voices (Idera, Emma, Zainab, Osagie, Tayo, etc.)
+- `rating` ranges 1.0–5.0, `confidence` and `persona_match_score` range 0.0–1.0
+
 ### POST /recommend — Task B: Recommendation
 
-Generates personalized recommendations with spoken explanation.
+Generates personalized recommendations across food, books, movies, and local Nigerian businesses.
+
+**Request fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `user_id` | string | No* | Existing user ID (agent fetches profile from memory) |
+| `user_persona` | string | No* | Free-text persona (e.g. "A Hausa trader in Kano") |
+| `category` | string | No | Filter — `"food"`, `"book"`, `"movie"`, `"business"`, or omit for all |
+
+*Either `user_id` or `user_persona` must be provided.
 
 ```bash
+# Example 1: Recommend food for existing user
 curl -X POST http://localhost:8000/recommend \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_123",
     "category": "food"
   }'
-```
 
-Response:
+# Example 2: Recommend books for a persona
+curl -X POST http://localhost:8000/recommend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_persona": "A Hausa student in Kano who enjoys history",
+    "category": "book"
+  }'
+
+# Example 3: General recommendation (all categories)
+curl -X POST http://localhost:8000/recommend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_persona": "An Igbo businessman in Enugu who likes action movies"
+  }'
+```
 ```json
 {
   "recommendations": [

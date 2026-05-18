@@ -17,29 +17,26 @@ logger = logging.getLogger("naija-soul")
 
 @router.post("/recommend", response_model=RecommendResponse)
 async def recommend(request: RecommendRequest) -> RecommendResponse:
-    input_msg = {
-        "messages": [
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "user_id": request.user_id,
-                        "category": request.category,
-                    }
-                ),
-            }
-        ]
-    }
+    content: dict = {}
+
+    if request.user_id:
+        content["user_id"] = request.user_id
+    if request.user_persona:
+        content["user_persona"] = request.user_persona
+    if request.category:
+        content["category"] = request.category
+
+    input_msg = {"messages": [{"role": "user", "content": json.dumps(content)}]}
 
     result = await task_b_agent.ainvoke(input_msg)
     last = result["messages"][-1]
-    content = last.content if hasattr(last, "content") else str(last)
+    content_str = last.content if hasattr(last, "content") else str(last)
     data: dict = {}
-    if isinstance(content, str):
+    if isinstance(content_str, str):
         try:
-            data = json.loads(content)
+            data = json.loads(content_str)
         except json.JSONDecodeError:
-            logger.warning("Agent output not valid JSON: %.200s", content)
+            logger.warning("Agent output not valid JSON: %.200s", content_str)
 
     raw_recs = data.get("recommendations", [])
     recommendations = [

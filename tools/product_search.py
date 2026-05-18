@@ -3,7 +3,6 @@ from typing import Any
 
 from langchain.tools import tool
 
-from agents.embeddings import get_embeddings
 from tools.product_store import store as product_store
 
 
@@ -22,16 +21,15 @@ def search_products_fast(
 ) -> str:
     """Search products across Yelp (food), Amazon (video games), Goodreads (books).
 
-    Two-stage hybrid search:
-    1. SQLite FTS5 BM25 → top 100 candidates (fast, exact keyword match)
-    2. Gemini text-embedding-004 → embed query + candidates → cosine similarity → top-k
+    Uses SQLite FTS5 BM25 ranking for fast, exact keyword matching.
+    Supports category filtering and multi-word queries.
 
     Args:
         query: Free-text search.
         category: Optional filter — "food", "book", or None for all.
         limit: Number of results to return (default 5).
     """
-    candidates: list[dict[str, Any]] = product_store.search(query, limit=20)
+    candidates: list[dict[str, Any]] = product_store.search(query, limit=limit * 4)
     if category:
         cat_lower = category.lower()
         candidates = [
@@ -43,23 +41,8 @@ def search_products_fast(
     if not candidates:
         return f"No products found for query='{query}' category={category}."
 
-    try:
-        embed = get_embeddings()
-        query_vec = embed.embed_query(query)
-        candidate_vecs = [
-            embed.embed_query(f"{c['name']} {c['description']}")
-            for c in candidates
-        ]
-        scores = [_cosine_sim(query_vec, cv) for cv in candidate_vecs]
-        top_indices = sorted(
-            range(len(scores)), key=lambda i: scores[i], reverse=True
-        )[:limit]
-    except Exception:
-        top_indices = list(range(min(limit, len(candidates))))
-
     results: list[str] = []
-    for i in top_indices:
-        c = candidates[i]
+    for c in candidates[:limit]:
         source = c.get("source", "?")
         name = c.get("name", "Unknown")
         cat = c.get("category", "")

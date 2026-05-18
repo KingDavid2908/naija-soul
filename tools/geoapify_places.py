@@ -53,17 +53,27 @@ def search_nigerian_businesses(
         location: Any Nigerian city, state, or event center name.
         limit: Max results (1-20).
     """
-    lon, lat = geocode_city(location)
+    try:
+        lon, lat = geocode_city(location)
+    except Exception as exc:
+        logger.warning("Geocoding failed for '%s': %s", location, exc)
+        lon, lat = 3.3792, 6.5244
+
     params = {
         "categories": category,
         "filter": f"circle:{lon},{lat},5000",
         "limit": min(limit, 20),
         "apiKey": GEOAPIFY_API_KEY,
     }
-    with httpx.Client(timeout=TIMEOUT) as client:
-        resp = client.get(PLACES_URL, params=params)
-        resp.raise_for_status()
-        data = resp.json()
+
+    try:
+        with httpx.Client(timeout=TIMEOUT) as client:
+            resp = client.get(PLACES_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("Geoapify Places API error: %s", exc)
+        return f"Could not find results for '{category}' in {location}. Try a different category."
 
     features = data.get("features", [])
     if not features:

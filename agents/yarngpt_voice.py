@@ -3,16 +3,18 @@ import re
 import time
 import wave
 import base64
+import logging
 import httpx
 from langchain.tools import tool
 
 from app.core.config import YARNGPT_API_KEY
-from app.core.logging import logger
+
+logger = logging.getLogger("naija-soul")
 
 API_URL = "https://yarngpt.ai/api/v1/tts"
 MAX_CHARS = 2000
 MAX_RETRIES = 3
-TIMEOUT = 30.0
+TIMEOUT = 60.0
 
 
 class YarnGPTVoiceTool:
@@ -195,4 +197,13 @@ def yarngpt_generate_audio(text: str, voice: str = "Idera") -> dict:
         A dict with keys: audio_base64 (str), voice_used (str),
         format (str), duration_estimate (float, seconds).
     """
-    return YarnGPTVoiceTool().split_generate_and_combine(text, voice)
+    try:
+        return YarnGPTVoiceTool().split_generate_and_combine(text, voice)
+    except Exception as exc:
+        logger.warning("YarnGPT audio generation failed: %s", exc)
+        return {
+            "audio_base64": "",
+            "voice_used": voice,
+            "format": "wav",
+            "duration_estimate": 0.0,
+        }

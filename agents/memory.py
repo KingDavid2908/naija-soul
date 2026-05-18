@@ -24,6 +24,6 @@ def _create_store() -> InMemoryStore:
 store = _create_store()
 
 memory_tools = [
-    create_manage_memory_tool(namespace=("user_profiles",), store=store),
+    create_manage_memory_tool(namespace=("user_profiles",), store=store, schema=dict),
     create_search_memory_tool(namespace=("user_profiles",), store=store),
 ]

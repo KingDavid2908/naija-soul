@@ -12,35 +12,36 @@ logger = logging.getLogger("naija-soul")
 
 @router.post("/simulate-review", response_model=SimulateReviewResponse)
 async def simulate_review(request: SimulateReviewRequest) -> SimulateReviewResponse:
-    input_msg = {
-        "messages": [
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "user_id": request.user_id,
-                        "product_name": request.product_name,
-                        "product_category": request.product_category,
-                        "product_description": request.product_description,
-                        "business_name": request.business_name,
-                    }
-                ),
-            }
-        ]
+    content: dict = {
+        "product_name": request.product_name,
+        "product_category": request.product_category,
+        "product_description": request.product_description,
     }
+
+    if request.business_name:
+        content["business_name"] = request.business_name
+
+    identifier = {}
+    if request.user_id:
+        identifier["user_id"] = request.user_id
+    if request.user_persona:
+        identifier["user_persona"] = request.user_persona
+    content.update(identifier)
+
+    input_msg = {"messages": [{"role": "user", "content": json.dumps(content)}]}
 
     result = await task_a_agent.ainvoke(input_msg)
     last = result["messages"][-1]
-    content = last.content if hasattr(last, "content") else str(last)
+    content_str = last.content if hasattr(last, "content") else str(last)
     data: dict = {}
-    if isinstance(content, str):
+    if isinstance(content_str, str):
         try:
-            data = json.loads(content)
+            data = json.loads(content_str)
         except json.JSONDecodeError:
-            logger.warning("Agent output not valid JSON: %.200s", content)
+            logger.warning("Agent output not valid JSON: %.200s", content_str)
 
     return SimulateReviewResponse(
-        review_text=data.get("review_text", content if isinstance(content, str) else ""),
+        review_text=data.get("review_text", content_str if isinstance(content_str, str) else ""),
         rating=float(data.get("rating", 0)),
         confidence=float(data.get("confidence", 0)),
         audio_base64=data.get("audio_base64", ""),

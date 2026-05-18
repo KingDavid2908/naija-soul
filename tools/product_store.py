@@ -67,7 +67,7 @@ def _iter_records() -> list[dict[str, Any]]:
 
 class ProductStore:
     def __init__(self) -> None:
-        self.conn = sqlite3.connect(":memory:")
+        self.conn = sqlite3.connect(":memory:", check_same_thread=False)
         self._build_index()
 
     def _build_index(self) -> None:
