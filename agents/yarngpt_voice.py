@@ -1,4 +1,8 @@
+import io
+import re
 import time
+import wave
+import base64
 import httpx
 from langchain.tools import tool
 
@@ -38,12 +42,77 @@ class YarnGPTVoiceTool:
             "Content-Type": "application/json",
         }
 
-    def generate(self, text: str, voice: str = "Idera", fmt: str = "mp3") -> bytes:
-        if voice not in self.VOICES:
-            raise ValueError(f"Unknown voice '{voice}'. Available: {', '.join(self.VOICES)}")
-        if len(text) > MAX_CHARS:
-            raise ValueError(f"Text exceeds {MAX_CHARS} characters ({len(text)} given)")
+    @staticmethod
+    def split_text(text: str, max_chars: int = MAX_CHARS) -> list[str]:
+        text = text.strip()
+        if not text:
+            return []
 
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+
+        chunks = []
+        buffer = ""
+        for sentence in sentences:
+            if len(sentence) > max_chars:
+                if buffer:
+                    chunks.append(buffer)
+                    buffer = ""
+                for i in range(0, len(sentence), max_chars):
+                    chunks.append(sentence[i : i + max_chars].strip())
+            elif len(buffer) + len(sentence) + 1 <= max_chars:
+                buffer = (buffer + " " + sentence).strip()
+            else:
+                chunks.append(buffer)
+                buffer = sentence
+
+        if buffer:
+            chunks.append(buffer)
+
+        return [c for c in chunks if c]
+
+    @staticmethod
+    def combine_wavs(wav_chunks: list[bytes]) -> bytes:
+        if not wav_chunks:
+            raise ValueError("No WAV chunks to combine")
+
+        if len(wav_chunks) == 1:
+            with wave.open(io.BytesIO(wav_chunks[0])) as w:
+                pass
+            return wav_chunks[0]
+
+        streams = []
+        total_frames = 0
+        params = None
+
+        for chunk in wav_chunks:
+            with wave.open(io.BytesIO(chunk)) as w:
+                p = w.getparams()
+                if params is None:
+                    params = p
+                else:
+                    if (p.nchannels != params.nchannels
+                            or p.sampwidth != params.sampwidth
+                            or p.framerate != params.framerate):
+                        raise ValueError(
+                            f"WAV format mismatch: {params} vs nchannels={p.nchannels}, "
+                            f"sampwidth={p.sampwidth}, framerate={p.framerate}"
+                        )
+                frames = w.readframes(p.nframes)
+                streams.append(frames)
+                total_frames += p.nframes
+
+        out = io.BytesIO()
+        with wave.open(out, "wb") as w:
+            w.setnchannels(params.nchannels)
+            w.setsampwidth(params.sampwidth)
+            w.setframerate(params.framerate)
+            for frames in streams:
+                w.writeframes(frames)
+
+        return out.getvalue()
+
+    def _call_api(self, text: str, voice: str, fmt: str) -> bytes:
         payload = {
             "text": text,
             "voice": voice,
@@ -74,33 +143,56 @@ class YarnGPTVoiceTool:
 
         raise RuntimeError(f"YarnGPT API failed after {MAX_RETRIES} retries")
 
-    def generate_batch(self, texts: list[str], voice: str = "Idera", fmt: str = "mp3") -> list[bytes]:
+    def generate(self, text: str, voice: str = "Idera", fmt: str = "wav") -> bytes:
+        if voice not in self.VOICES:
+            raise ValueError(f"Unknown voice '{voice}'. Available: {', '.join(self.VOICES)}")
+
+        if len(text) <= MAX_CHARS:
+            return self._call_api(text, voice, fmt)
+
+        chunks = self.split_text(text)
+        wavs = [self._call_api(t, voice, "wav") for t in chunks]
+        return self.combine_wavs(wavs)
+
+    def generate_batch(self, texts: list[str], voice: str = "Idera", fmt: str = "wav") -> list[bytes]:
         return [self.generate(t, voice=voice, fmt=fmt) for t in texts]
+
+    def split_generate_and_combine(self, full_text: str, voice: str = "Idera") -> dict:
+        audio_bytes = self.generate(full_text, voice=voice, fmt="wav")
+
+        duration = 0.0
+        try:
+            with wave.open(io.BytesIO(audio_bytes)) as w:
+                duration = w.getnframes() / w.getframerate() if w.getframerate() > 0 else 0.0
+        except Exception:
+            pass
+
+        return {
+            "audio_base64": base64.b64encode(audio_bytes).decode("utf-8"),
+            "voice_used": voice,
+            "format": "wav",
+            "duration_estimate": round(duration, 2),
+        }
 
     def close(self):
         self._client.close()
 
 
 @tool
-def yarngpt_generate_audio(text: str, voice: str = "Idera", fmt: str = "mp3") -> dict:
+def yarngpt_generate_audio(text: str, voice: str = "Idera") -> dict:
     """Generate Nigerian-accented audio from text using YarnGPT TTS.
 
+    Automatically handles long text by splitting at sentence boundaries,
+    generating audio for each segment, and combining into a single WAV file.
+
     Args:
-        text: The text to convert to speech (max 2000 characters).
-        voice: One of the YarnGPT voice names. See yarngpt_voice.VOICES for descriptions.
-        fmt: Audio format — "mp3", "wav", "opus", or "flac". Defaults to "mp3".
+        text: The text to convert to speech.
+        voice: One of the YarnGPT voice names — Idera, Emma, Zainab, Osagie,
+               Wura, Jude, Chinenye, Tayo, Regina, Femi, Adaora, Umar,
+               Mary, Nonso, Remi, Adam.
 
     Returns:
-        A dict with keys: audio_base64, voice_used, format.
+        A dict with keys: audio_base64 (str), voice_used (str),
+        format (str), duration_estimate (float, seconds).
     """
-    import base64
-    tool_instance = YarnGPTVoiceTool()
-    try:
-        audio_bytes = tool_instance.generate(text, voice=voice, fmt=fmt)
-        return {
-            "audio_base64": base64.b64encode(audio_bytes).decode("utf-8"),
-            "voice_used": voice,
-            "format": fmt,
-        }
-    finally:
-        tool_instance.close()
+    return YarnGPTVoiceTool().split_generate_and_combine(text, voice)
