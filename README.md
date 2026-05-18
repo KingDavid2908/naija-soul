@@ -207,7 +207,11 @@ naija-soul-ai/
 │   ├── models/schemas.py        # Pydantic models
 │   └── routers/                 # API route handlers
 ├── agents/                      # LangGraph agents + tools
-├── tools/                       # External API wrappers (Geoapify, Calendarific)
+├── tools/                       # External API wrappers + dataset loaders
+├── data/                        # Sampled datasets (Yelp, Amazon, Goodreads)
+│   ├── yelp/                    # 10K businesses, 20K reviews, 2K users
+│   ├── amazon/                  # 15K video game reviews
+│   └── goodreads/               # 7.9K books with genres
 ├── memory/                      # User profile store
 ├── Dockerfile
 ├── requirements.txt
