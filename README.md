@@ -17,9 +17,9 @@ AI Backend (Python / FastAPI)   — Render
         │
         ├── Groq (gpt-oss-120b)       — LLM reasoning
         ├── YarnGPT API               — Nigerian TTS
-        ├── Geoapify Places API       — Nigerian business data
-        ├── Calendarific API          — Nigerian holidays
-        └── Open-Meteo                — Weather context
+        ├── Geoapify Geocoding + Places  — Dynamic city resolution + business data
+        ├── Calendarific API          — Nigerian holidays + cultural festivals
+        └── Open-Meteo                — Weather context (past, present, future)
 ```
 
 ---
@@ -189,8 +189,8 @@ docker run -p 8000:10000 \
 | Agent Runtime | LangGraph (`create_agent`) |
 | Memory | LangMem (semantic memory store) |
 | TTS | YarnGPT API |
-| Places Data | Geoapify Places API |
-| Holidays | Calendarific API |
+| Places Data | Geoapify Geocoding + Places API |
+| Holidays & Festivals | Calendarific API (national, local, observance) |
 | Weather | Open-Meteo |
 | Deployment | Render |
 
@@ -207,9 +207,8 @@ naija-soul-ai/
 │   ├── models/schemas.py        # Pydantic models
 │   └── routers/                 # API route handlers
 ├── agents/                      # LangGraph agents + tools
-├── tools/                       # External API wrappers
+├── tools/                       # External API wrappers (Geoapify, Calendarific)
 ├── memory/                      # User profile store
-├── data/                        # Static datasets
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
