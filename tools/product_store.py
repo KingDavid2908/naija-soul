@@ -100,9 +100,10 @@ class ProductStore:
 
     @staticmethod
     def _sanitize_fts5_query(query: str) -> str:
+        special = set('"\'()*:^~+-,!@#$%&|;<=>?/[]{}')
         escaped = []
         for ch in query:
-            if ch in ('"', "'", "(", ")", "*", ":", "^", "~", "+", "-"):
+            if ch in special:
                 escaped.append(f'"{ch}"')
             elif ch.isspace():
                 escaped.append(" ")
