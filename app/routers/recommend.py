@@ -1,11 +1,13 @@
 import json
 import logging
 import asyncio
+import secrets
 
 from fastapi import APIRouter
 
 from agents.task_b_recommend import task_b_agent
 from agents.yarngpt_voice import YarnGPTVoiceTool
+from agents.translator import translate, LANGUAGES as TRANS_LANGS
 from app.models.schemas import (
     RecommendRequest,
     RecommendResponse,
@@ -19,10 +21,11 @@ logger = logging.getLogger("naija-soul")
 
 @router.post("/recommend", response_model=RecommendResponse)
 async def recommend(request: RecommendRequest) -> RecommendResponse:
-    content: dict = {}
+    user_id = request.user_id or "user_" + secrets.token_hex(4)
+    language = request.language
 
-    if request.user_id:
-        content["user_id"] = request.user_id
+    content: dict = {"user_id": user_id}
+
     if request.user_persona:
         content["user_persona"] = request.user_persona
     if request.category:
@@ -62,15 +65,18 @@ async def recommend(request: RecommendRequest) -> RecommendResponse:
     VALID_VOICES = YarnGPTVoiceTool.VOICES
     if voice_used not in VALID_VOICES:
         voice_used = "Idera"
-    language = data.get("language", "english")
+
+    translated_explanation = explanation_text
+    if language in TRANS_LANGS and explanation_text:
+        translated_explanation = await translate(explanation_text, language)
 
     audio_b64 = ""
-    if explanation_text:
+    if translated_explanation:
         try:
             tts = YarnGPTVoiceTool()
             loop = asyncio.get_running_loop()
             result_dict = await loop.run_in_executor(
-                None, tts.split_generate_and_combine, explanation_text, voice_used
+                None, tts.split_generate_and_combine, translated_explanation, voice_used
             )
             audio_b64 = result_dict.get("audio_base64", "")
             tts.close()
@@ -81,10 +87,12 @@ async def recommend(request: RecommendRequest) -> RecommendResponse:
         audio_base64=audio_b64,
         voice_used=voice_used,
         language=language,
-        text_transcript=explanation_text,
+        text_transcript=translated_explanation,
     )
 
     return RecommendResponse(
         recommendations=recommendations,
         spoken_explanation=spoken,
+        language=language,
+        user_id=user_id,
     )

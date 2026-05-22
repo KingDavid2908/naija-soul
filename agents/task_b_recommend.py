@@ -8,6 +8,7 @@ from agents.culture_context import get_cultural_context
 from tools.calendarific_holidays import get_current_nigerian_holidays
 from tools.geoapify_places import search_nigerian_businesses
 from tools.product_search import search_products_fast
+from tools.yelp_user_reviews import get_yelp_user_reviews
 
 task_b_tools = [
     *memory_tools,
@@ -16,6 +17,7 @@ task_b_tools = [
     get_current_nigerian_holidays,
     get_weather_context,
     get_cultural_context,
+    get_yelp_user_reviews,
 ]
 
 task_b_agent = create_react_agent(

@@ -6,12 +6,14 @@ from agents.prompts import SYSTEM_PROMPT_TASK_A
 from agents.weather_context import get_weather_context
 from tools.calendarific_holidays import get_current_nigerian_holidays
 from tools.product_search import search_products_fast
+from tools.yelp_user_reviews import get_yelp_user_reviews
 
 task_a_tools = [
     *memory_tools,
     get_current_nigerian_holidays,
     get_weather_context,
     search_products_fast,
+    get_yelp_user_reviews,
 ]
 
 task_a_agent = create_react_agent(

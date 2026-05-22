@@ -82,24 +82,29 @@ Response:
 
 ### POST /simulate-review — Task A: User Modeling
 
-Simulates a realistic user review in Nigerian English/Pidgin, with optional audio narration.
+Simulates a realistic user review in Nigerian English/Pidgin/Yoruba/Igbo/Hausa, with optional audio narration.
 
 **Request fields:**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `user_id` | string | No* | Existing user ID (agent fetches profile from memory) |
+| `user_id` | string | No* | Existing user ID (auto-generated from persona if omitted) |
 | `user_persona` | string | No* | Free-text persona (e.g. "A young Yoruba professional in Lagos") |
 | `product_name` | string | Yes | Name of the product, book, or dish |
 | `product_category` | string | Yes | Category — `"food"`, `"book"`, `"movie"`, or `"business"` |
 | `product_description` | string | Yes | Description of the product |
 | `business_name` | string | No | Restaurant/store name (for food/business categories) |
+| `language` | string | No | Output language: `english`, `pidgin` (default), `yoruba`, `igbo`, `hausa` |
 
 *Either `user_id` or `user_persona` must be provided (or both — they merge).
 
-**How `user_id` works:** Any name string. The agent infers ethnicity from the first name using built-in Yoruba/Hausa/Igbo name lists. Embed a city with underscore suffix (e.g. `chidi_onitsha`) for location detection. Memory is volatile (resets on server restart) — for reliable cross-session testing, prefer `user_persona`.
+**How `user_id` works:** Any name string. The agent infers ethnicity from the first name using built-in Yoruba/Hausa/Igbo name lists. Embed a city with underscore suffix (e.g. `chidi_onitsha`) for location detection. When omitted, a random `user_<hex>` ID is auto-generated and returned in the response — the frontend should save it for subsequent requests.
 
 Valid `user_id` examples: `tunde`, `chidi`, `amina`, `tayo_lagos`, `emeka_enugu`, `musa_kano`.
+
+**Yelp user_id lookup:** Pass a real Yelp user ID (from our Yelp dataset, e.g. `qVc8ODYU5SZjKXVBgXdI7w`) as `user_id`. The agent fetches that user's past reviews from the local dataset and mimics their writing style. Yelp dataset contains 2K users and 20K reviews.
+
+**Language support:** When `language` is `yoruba`, `igbo`, or `hausa`, the English/Pidgin review text is translated using Google Gemini post-generation. Yarngpt then reads the translated text in the target language.
 
 ```bash
 # Example 1: Existing user by ID
@@ -141,6 +146,8 @@ Response:
 - Play audio as: `new Audio(`data:audio/wav;base64,${data.audio_base64}`).play()`
 - `voice_used` is one of 16 YarnGPT Nigerian voices (Idera, Emma, Zainab, Osagie, Tayo, etc.)
 - `rating` ranges 1.0–5.0, `confidence` and `persona_match_score` range 0.0–1.0
+- `user_id` is auto-generated if not provided — save it for session continuity
+- `language` in response reflects the requested output language
 
 ### POST /recommend — Task B: Recommendation
 
@@ -149,10 +156,11 @@ Generates personalized recommendations across food, books, movies, and local Nig
 **Request fields:**
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `user_id` | string | No* | Existing user ID (agent fetches profile from memory) |
+|---|---|---|---|---|
+| `user_id` | string | No* | Existing user ID (auto-generated from persona if omitted) |
 | `user_persona` | string | No* | Free-text persona (e.g. "A Hausa trader in Kano") |
 | `category` | string | No | Filter — `"food"`, `"book"`, `"movie"`, `"business"`, or omit for all |
+| `language` | string | No | Output language: `english`, `pidgin` (default), `yoruba`, `igbo`, `hausa` |
 
 *Either `user_id` or `user_persona` must be provided (or both).
 
@@ -201,6 +209,14 @@ curl -X POST http://localhost:10000/recommend \
 }
 ```
 
+### GET /users/{user_id}/reviews — User History
+
+Returns metadata about a previously created user profile.
+
+```bash
+curl http://localhost:10000/users/user_abc123/reviews
+```
+
 ---
 
 ## Docker
@@ -219,6 +235,11 @@ docker run -p 10000:10000 \
   -e CALENDARIFIC_API_KEY=your_key \
   -e GEOAPIFY_API_KEY=your_key \
   -e GOOGLE_API_KEY=your_key \
+  -e GROQ_API_KEY=your_key \
+  # Optional: fallback keys
+  -e MISTRAL_API_KEY_2=backup_key \
+  -e GOOGLE_API_KEY_2=backup_key \
+  -e GROQ_API_KEY_2=backup_key \
   naija-soul-ai
 ```
 
@@ -231,12 +252,18 @@ docker run -p 10000:10000 \
 3. Set:
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn app.main:app --host 0.0.0.0 --port \$PORT`
-4. Add environment variables:
+4. Add environment variables (required):
    - `MISTRAL_API_KEY`
    - `YARNGPT_API_KEY`
    - `CALENDARIFIC_API_KEY`
    - `GEOAPIFY_API_KEY`
    - `GOOGLE_API_KEY`
+   - `GROQ_API_KEY`
+   
+   Optional fallback keys (for auto-retry on rate limits):
+   - `MISTRAL_API_KEY_2`, `MISTRAL_API_KEY_3`
+   - `GOOGLE_API_KEY_2`
+   - `GROQ_API_KEY_2`
 5. Deploy (Render Free spins down when idle)
 
 ---
@@ -246,16 +273,17 @@ docker run -p 10000:10000 \
 | Component | Technology |
 |---|---|
 | Framework | FastAPI (Python) |
-| LLM | Mistral — `mistral-large-latest` |
+| LLM | Mistral → Gemini → Groq (fallback chain with multiple keys) |
+| Translation | Google Gemini (post-generation: English → Yoruba/Igbo/Hausa) |
 | Agent Runtime | LangGraph (`create_react_agent`) |
-| Memory | LangMem (InMemoryStore + Gemini embeddings) |
+| Memory | PersistedInMemoryStore (JSON file, survives container restarts) |
 | Embeddings | Google Gemini `gemini-embedding-2` (3072d) |
 | TTS | YarnGPT API (16 Nigerian voices) |
 | Product Search | SQLite FTS5 → Gemini rerank (hybrid) |
 | Places Data | Geoapify Geocoding + Places API |
 | Holidays & Festivals | Calendarific API (national, local, observance) |
 | Weather | Open-Meteo (free, no key) |
-| Datasets | Yelp (10K), Amazon Reviews (15K), Goodreads (7.9K) |
+| Datasets | Yelp (10K businesses, 20K reviews, 2K users), Amazon Reviews (15K), Goodreads (7.9K) |
 | Deployment | Render |
 
 ---
@@ -272,9 +300,10 @@ naija-soul-ai/
 │   └── routers/                 # API route handlers
 ├── agents/
 │   ├── prompts.py               # System prompts for all agents
-│   ├── llm.py                   # Mistral LLM (lazy singleton)
+│   ├── llm.py                   # Fallback chain: Mistral → Gemini → Groq
 │   ├── embeddings.py            # Google Gemini embeddings
-│   ├── memory.py                # InMemoryStore + langmem tools
+│   ├── memory.py                # PersistedInMemoryStore + langmem tools
+│   ├── translator.py            # Gemini-based translation (Yoruba/Igbo/Hausa)
 │   ├── task_a_review.py         # Task A: Review Simulator agent
 │   ├── task_b_recommend.py      # Task B: Recommendation agent
 │   ├── yarngpt_voice.py         # YarnGPT TTS tool
