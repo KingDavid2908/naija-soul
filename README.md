@@ -95,14 +95,18 @@ Simulates a realistic user review in Nigerian English/Pidgin, with optional audi
 | `product_description` | string | Yes | Description of the product |
 | `business_name` | string | No | Restaurant/store name (for food/business categories) |
 
-*Either `user_id` or `user_persona` must be provided (or both for override).
+*Either `user_id` or `user_persona` must be provided (or both — they merge).
+
+**How `user_id` works:** Any name string. The agent infers ethnicity from the first name using built-in Yoruba/Hausa/Igbo name lists. Embed a city with underscore suffix (e.g. `chidi_onitsha`) for location detection. Memory is volatile (resets on server restart) — for reliable cross-session testing, prefer `user_persona`.
+
+Valid `user_id` examples: `tunde`, `chidi`, `amina`, `tayo_lagos`, `emeka_enugu`, `musa_kano`.
 
 ```bash
 # Example 1: Existing user by ID
 curl -X POST http://localhost:10000/simulate-review \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "user_123",
+    "user_id": "tunde",
     "product_name": "Jollof Rice",
     "product_category": "food",
     "product_description": "Classic Nigerian jollof rice with fried plantain",
@@ -150,14 +154,16 @@ Generates personalized recommendations across food, books, movies, and local Nig
 | `user_persona` | string | No* | Free-text persona (e.g. "A Hausa trader in Kano") |
 | `category` | string | No | Filter — `"food"`, `"book"`, `"movie"`, `"business"`, or omit for all |
 
-*Either `user_id` or `user_persona` must be provided.
+*Either `user_id` or `user_persona` must be provided (or both).
+
+**How `user_id` works:** Any name string. The agent infers ethnicity from the first name using built-in Yoruba/Hausa/Igbo name lists. See `/simulate-review` section for details and examples.
 
 ```bash
 # Example 1: Recommend food for existing user
 curl -X POST http://localhost:10000/recommend \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "user_123",
+    "user_id": "tunde",
     "category": "food"
   }'
 
