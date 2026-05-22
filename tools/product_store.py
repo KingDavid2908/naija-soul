@@ -41,6 +41,14 @@ def _get_subcat(rec: dict) -> str:
     return str(raw)
 
 
+def _get_product_id(rec: dict, source: str) -> str:
+    if source == "amazon":
+        return str(rec.get("product_id", ""))[:50]
+    if source == "yelp":
+        return str(rec.get("business_id", ""))[:50]
+    return ""
+
+
 def _iter_records() -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for path in sorted(DATA_DIR.rglob("*.json")):
@@ -55,12 +63,14 @@ def _iter_records() -> list[dict[str, Any]]:
                 desc = _get_desc(rec) or ""
                 cat = _get_cat(rec)
                 sub = _get_subcat(rec)
+                pid = _get_product_id(rec, src)
                 records.append({
                     "name": name[:500],
                     "description": desc[:1000],
                     "category": cat[:100],
                     "subcategory": sub[:200],
                     "source": src,
+                    "product_id": pid,
                 })
     return records
 
@@ -74,14 +84,14 @@ class ProductStore:
         cur = self.conn.cursor()
         cur.execute(
             "CREATE VIRTUAL TABLE products USING fts5("
-            "  name, description, category, subcategory, source"
+            "  name, description, category, subcategory, source, product_id"
             ")"
         )
         records = _iter_records()
         for r in records:
             cur.execute(
-                "INSERT INTO products VALUES (?, ?, ?, ?, ?)",
-                (r["name"], r["description"], r["category"], r["subcategory"], r["source"]),
+                "INSERT INTO products VALUES (?, ?, ?, ?, ?, ?)",
+                (r["name"], r["description"], r["category"], r["subcategory"], r["source"], r["product_id"]),
             )
         self.conn.commit()
         logger.info("ProductStore built with %d records", len(records))
@@ -89,10 +99,10 @@ class ProductStore:
     def search(self, query: str, limit: int = 100) -> list[dict[str, Any]]:
         fts5_query = self._sanitize_fts5_query(query)
         sql = (
-            "SELECT rowid, name, description, category, subcategory, source, rank "
+            "SELECT rowid, name, description, category, subcategory, source, product_id, rank "
             "FROM products WHERE products MATCH ? ORDER BY rank LIMIT ?"
         )
-        cols = ["rowid", "name", "description", "category", "subcategory", "source", "rank"]
+        cols = ["rowid", "name", "description", "category", "subcategory", "source", "product_id", "rank"]
         return [
             dict(zip(cols, row))
             for row in self.conn.execute(sql, (fts5_query, limit))

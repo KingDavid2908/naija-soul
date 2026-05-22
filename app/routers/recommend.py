@@ -55,6 +55,7 @@ async def recommend(request: RecommendRequest) -> RecommendResponse:
             category=r.get("category", ""),
             score=float(r.get("score", 0)),
             reason=r.get("reason", ""),
+            link=r.get("link", ""),
         )
         for r in raw_recs
         if isinstance(r, dict)

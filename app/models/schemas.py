@@ -55,6 +55,7 @@ class Recommendation(BaseModel):
     category: str
     score: float
     reason: str
+    link: str = ""
 
 
 class SpokenExplanation(BaseModel):

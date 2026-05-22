@@ -86,6 +86,8 @@ def search_nigerian_businesses(
         address = p.get("formatted", p.get("address_line2", ""))
         distance = p.get("distance")
         dist_str = f" — {distance}m away" if distance is not None else ""
-        lines.append(f"  {i}. {name}{dist_str} — {address}")
+        website = p.get("website", "") or ""
+        web_str = f" | {website}" if website else ""
+        lines.append(f"  {i}. {name}{dist_str} — {address}{web_str}")
 
     return "\n".join(lines)

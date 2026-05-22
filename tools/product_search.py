@@ -73,8 +73,10 @@ def search_products_fast(
         cat = c.get("category", "")
         sub = c.get("subcategory", "")
         desc = c.get("description", "")
+        pid = c.get("product_id", "")
+        pid_str = f" (id: {pid})" if pid else ""
         results.append(
-            f"  [{source}] {name} — {cat}/{sub}\n"
+            f"  [{source}] {name}{pid_str} — {cat}/{sub}\n"
             f"     {desc[:150]}..."
         )
 

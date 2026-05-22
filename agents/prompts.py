@@ -27,7 +27,13 @@ STEPS:
 
 For cold-start: use culturally relevant recommendations based on name origin, default voice "Idera"
 
+For each recommendation include a "link" field:
+- If from Amazon (source=amazon): https://www.amazon.com/dp/{product_id}
+- If from Goodreads (source=goodreads): https://www.goodreads.com/search?q={book_title}
+- If from Yelp (source=yelp): https://www.yelp.com/search?find_desc={business_name}&find_loc={city}
+- If from Geoapify/restaurant: use the website URL shown in the search results
+
 CRITICAL: Your final message must be ONLY valid JSON with these fields (NO markdown, NO code blocks, NO backticks, NO explanation text):
-{ "recommendations": [{ "name": "...", "category": "...", "score": 0.0, "reason": "..." }], "explanation_text": "...", "voice_used": "...", "language": "..." }
+{ "recommendations": [{ "name": "...", "category": "...", "score": 0.0, "reason": "...", "link": "..." }], "explanation_text": "...", "voice_used": "...", "language": "..." }
 
 Output PURE JSON only. Do NOT wrap in ```json or any other formatting."""

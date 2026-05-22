@@ -166,6 +166,12 @@ Generates personalized recommendations across food, books, movies, and local Nig
 
 **How `user_id` works:** Any name string. The agent infers ethnicity from the first name using built-in Yoruba/Hausa/Igbo name lists. See `/simulate-review` section for details and examples.
 
+**Link field:** Each recommendation includes a `link` with the actual product page or business URL:
+- **Amazon products**: `https://www.amazon.com/dp/{product_id}` (verified product page)
+- **Goodreads books**: `https://www.goodreads.com/search?q={book_title}`
+- **Yelp businesses**: `https://www.yelp.com/search?find_desc={name}&find_loc={city}`
+- **Geoapify restaurants**: The business website URL (e.g. `https://thegreenhouse.ng/`)
+
 ```bash
 # Example 1: Recommend food for existing user
 curl -X POST http://localhost:10000/recommend \
@@ -194,10 +200,18 @@ curl -X POST http://localhost:10000/recommend \
 {
   "recommendations": [
     {
-      "name": "Terra Kulture",
+      "name": "The Greenhouse Lagos",
       "category": "restaurant",
+      "score": 0.95,
+      "reason": "Great jollof rice and live music every Friday",
+      "link": "https://thegreenhouse.ng/"
+    },
+    {
+      "name": "Things Fall Apart",
+      "category": "book",
       "score": 0.92,
-      "reason": "Great jollof rice and live music every Friday"
+      "reason": "Chinua Achebe classic",
+      "link": "https://www.goodreads.com/search?q=Things+Fall+Apart"
     }
   ],
   "spoken_explanation": {
@@ -205,7 +219,9 @@ curl -X POST http://localhost:10000/recommend \
     "voice_used": "Tayo",
     "language": "english",
     "text_transcript": "For where una dey tonight, I recommend Terra Kulture..."
-  }
+  },
+  "language": "pidgin",
+  "user_id": "user_a1b2c3d4"
 }
 ```
 
