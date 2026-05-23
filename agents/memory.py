@@ -1,3 +1,22 @@
+# Naija Soul Memory System
+#
+# This module manages persistent user profiles across sessions using
+# LangGraph's InMemoryStore with Gemini semantic embeddings + JSON file
+# persistence for crash survival.
+#
+# AGENT DECISIONS:
+# - On startup: loads previously saved profiles from
+#   /tmp/naija_soul_memory.json so returning users are recognized
+#   across container restarts
+# - On manage_memory call: saves the profile dict to both the in-memory
+#   semantic index (fast similarity search via Gemini embeddings) and
+#   the JSON file (survives crashes)
+# - On search_memory call: uses Gemini embeddings to find profiles by
+#   name, ethnicity, or location keywords across all stored users
+#
+# The store is a singleton — both Task A and Task B agents share the
+# same memory pool so user history is consistent across features.
+
 import json
 import logging
 import os
@@ -51,6 +70,9 @@ def _replay_into_store(store: InMemoryStore, data: dict) -> None:
                         pass
 
 
+# AGENT: On every profile save (manage_memory tool call), immediately
+# persist to disk. This survives server crashes and Render scale-to-zero
+# so the user's conversation history isn't lost between sessions.
 class PersistedInMemoryStore(InMemoryStore):
     def put(self, namespace, key, value):
         super().put(namespace, key, value)
@@ -70,6 +92,12 @@ class PersistedInMemoryStore(InMemoryStore):
         return result
 
 
+# AGENT: Try to build a semantic search index with Gemini embeddings
+# (3072 dimensions). This lets search_memory find profiles by meaning
+# rather than exact keyword match — e.g. "Yoruba guy from Lagos" will
+# match profiles tagged "yoruba" + "lagos" even if the wording differs.
+# If Gemini is rate-limited, fall back to a no-index store that still
+# supports exact-match lookups.
 def _create_store() -> PersistedInMemoryStore:
     try:
         embed = get_embeddings()
@@ -89,6 +117,15 @@ def _create_store() -> PersistedInMemoryStore:
 
 store = _create_store()
 
+# AGENT: Two memory tools available to the agent:
+# 1. manage_memory — saves a user profile dict (ethnicity, voice, etc.)
+#    after inferring it from the user's name and location.
+#    AGENT DECISION: used at the end of every interaction to persist
+#    the user's history for future sessions.
+# 2. search_memory — looks up existing profiles by semantic similarity.
+#    AGENT DECISION: used at the start of every interaction to check
+#    if this user has history — avoids generating a fresh profile
+#    each time and preserves tone continuity.
 memory_tools = [
     create_manage_memory_tool(namespace=("user_profiles",), store=store, schema=dict),
     create_search_memory_tool(namespace=("user_profiles",), store=store),
